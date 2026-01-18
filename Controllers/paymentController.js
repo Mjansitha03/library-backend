@@ -14,7 +14,9 @@ export const createPaymentOrder = async (req, res) => {
     const { borrowId, amount, purpose } = req.body;
 
     if (!borrowId || !amount) {
-      return res.status(400).json({ message: "Borrow ID and amount are required" });
+      return res
+        .status(400)
+        .json({ message: "Borrow ID and amount are required" });
     }
 
     const borrow = await Borrow.findById(borrowId).populate("user");
@@ -49,7 +51,12 @@ export const createPaymentOrder = async (req, res) => {
 // Verify payment
 export const verifyPayment = async (req, res) => {
   try {
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, paymentId } = req.body;
+    const {
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+      paymentId,
+    } = req.body;
 
     const body = razorpay_order_id + "|" + razorpay_payment_id;
     const expectedSignature = crypto
@@ -83,26 +90,31 @@ export const handleWebhook = async (req, res) => {
   try {
     const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
     const signature = req.headers["x-razorpay-signature"];
-    const body = JSON.stringify(req.body);
 
     const expectedSignature = crypto
       .createHmac("sha256", secret)
-      .update(body)
+      .update(req.body)
       .digest("hex");
 
     if (signature !== expectedSignature) {
-      return res.status(400).json({ message: "Invalid webhook signature" });
+      console.error("Webhook signature mismatch");
+      return res.status(400).json({ message: "Invalid signature" });
     }
 
-    const event = req.body;
+    const event = JSON.parse(req.body.toString());
 
     if (event.event === "payment_link.paid") {
       const paymentLinkId = event.payload.payment_link.entity.id;
 
-      const payment = await Payment.findOne({ razorpayOrderId: paymentLinkId });
+      const payment = await Payment.findOne({
+        razorpayOrderId: paymentLinkId,
+      });
+
       if (payment && payment.status !== "success") {
         payment.status = "success";
-        payment.razorpayPaymentId = event.payload.payment_link.entity.payment_id;
+        payment.razorpayPaymentId =
+          event.payload.payment_link.entity.payment_id;
+
         await payment.save();
 
         const borrow = await Borrow.findById(payment.borrow);
@@ -110,15 +122,14 @@ export const handleWebhook = async (req, res) => {
           borrow.lateFee = 0;
           await borrow.save();
         }
+
+        console.log("Payment updated via webhook");
       }
     }
 
     res.json({ status: "ok" });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Webhook error" });
+    console.error("Webhook error:", err);
+    res.status(500).json({ message: "Webhook processing failed" });
   }
 };
-
-
-

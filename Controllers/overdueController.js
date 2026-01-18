@@ -11,8 +11,6 @@ const razorpay = new Razorpay({
   key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
 
-
-
 // Run overdue check
 export const runOverdueCheck = async () => {
   try {
@@ -24,43 +22,47 @@ export const runOverdueCheck = async () => {
     }).populate("user book");
 
     for (const borrow of overdueBorrows) {
-      const payment = await Payment.findOne({
+      const paid = await Payment.exists({
         borrow: borrow._id,
         purpose: "FINE",
+        status: "success",
       });
 
-      if (payment && payment.status === "success") {
-        continue;
-      }
+      if (paid) continue;
 
       if (!borrow.lateFee || borrow.lateFee === 0) {
         borrow.lateFee = FIXED_FINE;
         await borrow.save();
       }
 
-      const lastNotification = await Notification.findOne({
+      const notified = await Notification.exists({
         user: borrow.user._id,
         referenceId: borrow._id,
         type: "overdue",
-      }).sort({ createdAt: -1 });
+      });
 
-      if (!lastNotification) {
+      if (!notified) {
         await Notification.create({
           user: borrow.user._id,
           referenceId: borrow._id,
           type: "overdue",
-          message: `Your book "${borrow.book.title}" is overdue. Current fine: ₹${borrow.lateFee}`,
+          message: `Your book "${borrow.book.title}" is overdue. Fine: ₹${borrow.lateFee}`,
           fine: borrow.lateFee,
         });
 
         await sendEmail(
           borrow.user.email,
           "Overdue Book Reminder",
-          `Your book "${borrow.book.title}" is overdue.\nCurrent fine: ₹${borrow.lateFee}\nPlease pay as soon as possible.`,
+          `Your book "${borrow.book.title}" is overdue.\nFine: ₹${borrow.lateFee}`,
         );
       }
 
-      if (!payment) {
+      const existingPayment = await Payment.findOne({
+        borrow: borrow._id,
+        purpose: "FINE",
+      });
+
+      if (!existingPayment) {
         const paymentLink = await razorpay.paymentLink.create({
           amount: borrow.lateFee * 100,
           currency: "INR",
@@ -84,7 +86,7 @@ export const runOverdueCheck = async () => {
       }
     }
   } catch (err) {
-    console.error("Overdue check failed:", err);
+    console.error("Overdue cron failed:", err);
   }
 };
 
