@@ -1,7 +1,6 @@
 import Borrow from "../Models/borrowSchema.js";
 import Notification from "../Models/notificationSchema.js";
 import Payment from "../Models/paymentSchema.js";
-import { sendEmail } from "../Utils/mailer.js";
 import Razorpay from "razorpay";
 
 const FIXED_FINE = 20;
@@ -11,7 +10,6 @@ const razorpay = new Razorpay({
   key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
 
-// Run overdue check
 export const runOverdueCheck = async () => {
   try {
     const now = new Date();
@@ -22,39 +20,17 @@ export const runOverdueCheck = async () => {
     }).populate("user book");
 
     for (const borrow of overdueBorrows) {
-      const paid = await Payment.exists({
+
+      const finePaid = await Payment.exists({
         borrow: borrow._id,
         purpose: "FINE",
         status: "success",
       });
-
-      if (paid) continue;
+      if (finePaid) continue;
 
       if (!borrow.lateFee || borrow.lateFee === 0) {
         borrow.lateFee = FIXED_FINE;
         await borrow.save();
-      }
-
-      const notified = await Notification.exists({
-        user: borrow.user._id,
-        referenceId: borrow._id,
-        type: "overdue",
-      });
-
-      if (!notified) {
-        await Notification.create({
-          user: borrow.user._id,
-          referenceId: borrow._id,
-          type: "overdue",
-          message: `Your book "${borrow.book.title}" is overdue. Fine: ₹${borrow.lateFee}`,
-          fine: borrow.lateFee,
-        });
-
-        await sendEmail(
-          borrow.user.email,
-          "Overdue Book Reminder",
-          `Your book "${borrow.book.title}" is overdue.\nFine: ₹${borrow.lateFee}`,
-        );
       }
 
       const existingPayment = await Payment.findOne({
@@ -82,6 +58,15 @@ export const runOverdueCheck = async () => {
           status: "pending",
           razorpayOrderId: paymentLink.id,
           purpose: "FINE",
+        });
+
+        await Notification.create({
+          user: borrow.user._id,
+          title: "Overdue Book Fine",
+          message: `Your book "${borrow.book.title}" is overdue.
+           A fine of ₹${borrow.lateFee} has been applied.`,
+          type: "FINE",
+          referenceId: borrow._id,
         });
       }
     }

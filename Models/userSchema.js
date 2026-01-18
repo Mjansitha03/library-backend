@@ -34,6 +34,13 @@ const userSchema = new mongoose.Schema(
       default: "user",
     },
 
+    resetToken: {
+      type: String,
+    },
+    resetTokenExpiry: {
+      type: Date,
+    },
+
     activity: {
       borrowed: { type: Number, default: 0 },
       active: { type: Number, default: 0 },
@@ -44,12 +51,9 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
-
-    createdAt: Date,
-    updatedAt: Date,
   },
   {
-    timestamps: { createdAt: "createdAt", updatedAt: "updatedAt" },
+    timestamps: true,
   }
 );
 

@@ -1,7 +1,7 @@
 // import BorrowRequest from "../Models/borrowRequestSchema.js";
 // import Borrow from "../Models/borrowSchema.js";
 // import Book from "../Models/bookSchema.js";
-// import Reservation from "../Models/reservationSchema.js"; 
+// import Reservation from "../Models/reservationSchema.js";
 // import { notifyNextReservedUser } from "./reservationController.js";
 
 // const BORROW_DAYS = 7;
@@ -75,7 +75,6 @@
 //     res.status(500).json({ message: "Server error" });
 //   }
 // };
-
 
 // export const requestReturn = async (req, res) => {
 //   try {
@@ -204,7 +203,6 @@
 //     book.availableCopies -= 1;
 //     await book.save();
 
-
 //     await Reservation.updateMany(
 //       {
 //         book: request.book._id,
@@ -213,7 +211,6 @@
 //       },
 //       { status: "completed" }
 //     );
-
 
 //     if (book.availableCopies > 0) {
 //       await notifyNextReservedUser(book._id);
@@ -228,7 +225,6 @@
 //     res.status(500).json({ message: "Server error" });
 //   }
 // };
-
 
 // export const approveReturnRequest = async (req, res) => {
 //   try {
@@ -261,7 +257,6 @@
 //     request.approvedBy = req.user._id;
 //     request.approvedAt = new Date();
 //     await request.save();
-
 
 //     await notifyNextReservedUser(book._id);
 
@@ -315,22 +310,16 @@
 
 
 
-
-
 import BorrowRequest from "../Models/borrowRequestSchema.js";
 import Borrow from "../Models/borrowSchema.js";
 import Book from "../Models/bookSchema.js";
 import Reservation from "../Models/reservationSchema.js";
+import Payment from "../Models/paymentSchema.js";
 import { notifyNextReservedUser } from "./reservationController.js";
-
 
 const BORROW_DURATION_MINUTES = 2;
 
-const FINE_PER_MINUTE = 5;
-
 const MAX_ACTIVE_BORROWS = 3;
-
-const ONE_MINUTE_MS = 60 * 1000;
 
 export const requestBorrow = async (req, res) => {
   try {
@@ -348,9 +337,7 @@ export const requestBorrow = async (req, res) => {
     });
 
     if (activeNotified && !activeNotified.user.equals(req.user._id)) {
-      return res
-        .status(403)
-        .json({ message: "Book reserved by another user" });
+      return res.status(403).json({ message: "Book reserved by another user" });
     }
 
     const userReservation = await Reservation.findOne({
@@ -400,33 +387,44 @@ export const requestBorrow = async (req, res) => {
   }
 };
 
-
 export const requestReturn = async (req, res) => {
   try {
     const { borrowId } = req.body;
 
-    const borrow = await Borrow.findById(borrowId);
-    if (!borrow) {
-      return res.status(400).json({ message: "Invalid borrow" });
-    }
+    const borrow = await Borrow.findById(borrowId).populate("book user");
+    if (!borrow) return res.status(400).json({ message: "Invalid borrow" });
 
-    if (borrow.status !== "borrowed") {
+    if (borrow.status !== "borrowed")
       return res.status(400).json({ message: "Invalid borrow state" });
+
+    // Check if overdue and fine paid
+    const isOverdue = borrow.dueDate < new Date();
+    if (isOverdue) {
+      const finePaid = await Payment.exists({
+        borrow: borrow._id,
+        purpose: "FINE",
+        status: "success",
+      });
+
+      if (!finePaid) {
+        return res.status(403).json({
+          message: "Overdue is pending. Please pay before returning.",
+        });
+      }
     }
 
+    // Check existing return request
     const existing = await BorrowRequest.findOne({
       borrowRef: borrow._id,
       type: "return",
       status: "pending",
     });
-
-    if (existing) {
+    if (existing)
       return res.json({ message: "Return request already pending" });
-    }
 
     const request = await BorrowRequest.create({
-      user: borrow.user,
-      book: borrow.book,
+      user: borrow.user._id,
+      book: borrow.book._id,
       borrowRef: borrow._id,
       type: "return",
       status: "pending",
@@ -435,10 +433,7 @@ export const requestReturn = async (req, res) => {
     borrow.status = "pending-return";
     await borrow.save();
 
-    res.status(201).json({
-      message: "Return request submitted",
-      request,
-    });
+    res.status(201).json({ message: "Return request submitted", request });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });
@@ -504,7 +499,7 @@ export const approveBorrowRequest = async (req, res) => {
         user: request.user._id,
         status: { $in: ["notified", "in-progress"] },
       },
-      { status: "completed" }
+      { status: "completed" },
     );
 
     if (request.book.availableCopies > 0) {
@@ -524,7 +519,7 @@ export const approveBorrowRequest = async (req, res) => {
 export const approveReturnRequest = async (req, res) => {
   try {
     const request = await BorrowRequest.findById(req.params.id).populate(
-      "borrowRef"
+      "borrowRef",
     );
 
     if (!request || request.type !== "return") {
@@ -535,15 +530,6 @@ export const approveReturnRequest = async (req, res) => {
 
     borrow.status = "returned";
     borrow.returnDate = new Date();
-
-    let overdueMinutes = 0;
-    if (borrow.returnDate > borrow.dueDate) {
-      overdueMinutes = Math.ceil(
-        (borrow.returnDate - borrow.dueDate) / ONE_MINUTE_MS
-      );
-    }
-
-    borrow.lateFee = overdueMinutes * FINE_PER_MINUTE;
     await borrow.save();
 
     const book = await Book.findById(borrow.book);
@@ -557,11 +543,7 @@ export const approveReturnRequest = async (req, res) => {
 
     await notifyNextReservedUser(book._id);
 
-    res.json({
-      message: "Return approved",
-      overdueMinutes,
-      fine: borrow.lateFee,
-    });
+    res.json({ message: "Return approved successfully" });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });
@@ -605,6 +587,3 @@ export const getMyBorrowRequests = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
-
-
-

@@ -36,7 +36,6 @@
 //   res.json(borrows.map((b) => b.book));
 // };
 
-
 // export const checkoutBook = async (req, res) => {
 //   try {
 //     const { userId, bookId, borrowRequestId } = req.body;
@@ -126,33 +125,54 @@
 // };
 
 
+
+
 import Borrow from "../Models/borrowSchema.js";
 import Book from "../Models/bookSchema.js";
 import BorrowRequest from "../Models/borrowRequestSchema.js";
 import Reservation from "../Models/reservationSchema.js";
-
+import Payment from "../Models/paymentSchema.js";
 
 const BORROW_DURATION_MINUTES = 2;
 
 const MAX_ACTIVE_BORROWS = 3;
 
-const FINE_PER_MINUTE = 5;
-
-
-const ONE_MINUTE_MS = 60 * 1000;
 
 export const getMyBorrows = async (req, res) => {
   try {
+    const now = new Date();
+
     const borrows = await Borrow.find({
       user: req.user._id,
       status: { $in: ["borrowed", "pending-return"] },
     }).populate("book", "title author image");
 
-    res.json(borrows);
+    const result = [];
+
+    for (const b of borrows) {
+      const isOverdue = b.dueDate < now && !b.returnDate;
+
+      const finePaid = await Payment.exists({
+        borrow: b._id,
+        purpose: "FINE",
+        status: "success",
+      });
+
+      result.push({
+        ...b.toObject(),
+        isOverdue,
+        finePaid: !!finePaid,
+        canReturn: !isOverdue || !!finePaid, 
+      });
+    }
+
+    res.json(result);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ message: "Server error" });
   }
 };
+
 export const getBorrowHistory = async (req, res) => {
   try {
     const history = await Borrow.find({

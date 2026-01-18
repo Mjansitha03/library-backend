@@ -49,6 +49,7 @@ export const createPaymentOrder = async (req, res) => {
 };
 
 // Verify payment
+// controllers/paymentController.js
 export const verifyPayment = async (req, res) => {
   try {
     const {
@@ -57,6 +58,13 @@ export const verifyPayment = async (req, res) => {
       razorpay_signature,
       paymentId,
     } = req.body;
+
+    // ⛔ Prevent payment-link verification here
+    if (razorpay_order_id.startsWith("plink_")) {
+      return res.status(400).json({
+        message: "Payment link verification handled by webhook only",
+      });
+    }
 
     const body = razorpay_order_id + "|" + razorpay_payment_id;
     const expectedSignature = crypto
@@ -68,15 +76,23 @@ export const verifyPayment = async (req, res) => {
       return res.status(400).json({ message: "Invalid signature" });
     }
 
-    const payment = await Payment.findById(paymentId);
+    // ✅ SAFE LOOKUP
+    const payment = await Payment.findOne({
+      _id: paymentId,
+      razorpayOrderId: razorpay_order_id,
+      status: "pending",
+    });
+
+    if (!payment) {
+      return res.status(400).json({
+        message: "Invalid or already processed payment",
+      });
+    }
+
     payment.status = "success";
     payment.razorpayPaymentId = razorpay_payment_id;
     payment.razorpaySignature = razorpay_signature;
     await payment.save();
-
-    const borrow = await Borrow.findById(payment.borrow);
-    borrow.lateFee = 0;
-    await borrow.save();
 
     res.json({ message: "Payment verified successfully" });
   } catch (err) {
@@ -86,6 +102,7 @@ export const verifyPayment = async (req, res) => {
 };
 
 // Handle webhook
+// controllers/paymentController.js
 export const handleWebhook = async (req, res) => {
   try {
     const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
@@ -97,7 +114,6 @@ export const handleWebhook = async (req, res) => {
       .digest("hex");
 
     if (signature !== expectedSignature) {
-      console.error("Webhook signature mismatch");
       return res.status(400).json({ message: "Invalid signature" });
     }
 
@@ -105,26 +121,20 @@ export const handleWebhook = async (req, res) => {
 
     if (event.event === "payment_link.paid") {
       const paymentLinkId = event.payload.payment_link.entity.id;
+      const razorpayPaymentId = event.payload.payment_link.entity.payment_id;
 
       const payment = await Payment.findOne({
         razorpayOrderId: paymentLinkId,
+        status: "pending",
       });
 
-      if (payment && payment.status !== "success") {
-        payment.status = "success";
-        payment.razorpayPaymentId =
-          event.payload.payment_link.entity.payment_id;
-
-        await payment.save();
-
-        const borrow = await Borrow.findById(payment.borrow);
-        if (borrow) {
-          borrow.lateFee = 0;
-          await borrow.save();
-        }
-
-        console.log("Payment updated via webhook");
+      if (!payment) {
+        return res.json({ status: "ignored" });
       }
+
+      payment.status = "success";
+      payment.razorpayPaymentId = razorpayPaymentId;
+      await payment.save();
     }
 
     res.json({ status: "ok" });
