@@ -7,24 +7,33 @@ import User from "../Models/userSchema.js";
 
 dotenv.config();
 
-// User Registration  
+// User Registration
 export const signup = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, phone } = req.body;
+
+    if (!name || !email || !password || !phone) {
+      return res.status(400).json({ message: "All fields are required" });
+    }
+
     const exists = await User.findOne({ email });
     if (exists) return res.status(400).json({ message: "User already exists" });
+
     const hashed = await bcrypt.hash(password, 10);
-    const user = await User.create({ name, email, password: hashed });
+
+    const user = await User.create({ name, email, password: hashed, phone });
+
     res.status(201).json({
       message: "User registered successfully",
-      data: { id: user._id, name, email },
+      data: { id: user._id, name, email, phone },
     });
   } catch (error) {
     console.error("Signup Error:", error);
     res.status(500).json({ message: "Server error" });
   }
 };
-// User Login 
+
+// User Login
 export const signin = async (req, res) => {
   try {
     const { email, password } = req.body;

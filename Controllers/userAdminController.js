@@ -9,7 +9,6 @@ export const getAllUsers = async (req, res) => {
   try {
     const users = await User.find().select("-password").lean();
 
-
     const borrows = await Borrow.aggregate([
       {
         $group: {
@@ -19,7 +18,12 @@ export const getAllUsers = async (req, res) => {
           overdue: {
             $sum: {
               $cond: [
-                { $and: [{ $eq: ["$returned", false] }, { $lt: ["$dueDate", new Date()] }] },
+                {
+                  $and: [
+                    { $eq: ["$returned", false] },
+                    { $lt: ["$dueDate", new Date()] },
+                  ],
+                },
                 1,
                 0,
               ],
@@ -28,7 +32,6 @@ export const getAllUsers = async (req, res) => {
         },
       },
     ]);
-
 
     const reservations = await Reservation.aggregate([
       {
@@ -39,10 +42,9 @@ export const getAllUsers = async (req, res) => {
       },
     ]);
 
-
     const payments = await Payment.aggregate([
       {
-        $match: { status: "pending" }
+        $match: { status: "pending" },
       },
       {
         $group: {
@@ -99,6 +101,7 @@ export const getAllUsers = async (req, res) => {
         overdue: 0,
         reservations: 0,
       },
+      phone: u.phone,
     }));
 
     res.json(usersWithActivity);
@@ -107,7 +110,6 @@ export const getAllUsers = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
-
 
 // Update User Role
 export const updateUserRole = async (req, res) => {
