@@ -29,7 +29,7 @@ export const runOverdueCheck = async () => {
         purpose: "FINE",
       });
 
-      if (payment && payment.status === "paid") {
+      if (payment && payment.status === "success") {
         continue;
       }
 

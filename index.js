@@ -18,9 +18,12 @@ import userProfileRoute from "./Routes/userProfileRoute.js";
 import adminAnalyticsRoutes from "./Routes/adminAnalyticsRoutes.js";
 import userStatsRoute from "./Routes/userStatsRoute.js";
 import overdueRoute from "./Routes/overdueRoute.js";
+import paymentRoute from "./Routes/paymentRoute.js";
 
 dotenv.config();
 const app = express();
+
+app.use("/api/payments/webhook", express.raw({ type: "application/json" }));
 
 app.use(express.json());
 app.use(
@@ -51,12 +54,13 @@ app.use("/api/notifications", notificationRoute);
 app.use("/api/borrows", borrowRoute);
 app.use("/api/borrow-requests", borrowRequestRoute);
 app.use("/api/overdue", overdueRoute);
+app.use("/api/payments", paymentRoute);
 
 app.use("/api/reservations", reservationRoute);
 app.use("/api/admin", adminRoute);
 app.use("/api/admin/analytics", adminAnalyticsRoutes);
 
-const PORT = process.env.PORT;
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () =>
   console.log(`Server running on http://localhost:${PORT}`),
 );

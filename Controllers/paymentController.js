@@ -96,12 +96,14 @@ export const handleWebhook = async (req, res) => {
 
     const event = req.body;
 
-    if (event.event === "payment.captured") {
-      const { order_id, id } = event.payload.payment.entity;
-      const payment = await Payment.findOne({ razorpayOrderId: order_id });
-      if (payment) {
+    // ✅ Correct event for payment links
+    if (event.event === "payment_link.paid") {
+      const paymentLinkId = event.payload.payment_link.entity.id;
+
+      const payment = await Payment.findOne({ razorpayOrderId: paymentLinkId });
+      if (payment && payment.status !== "success") {
         payment.status = "success";
-        payment.razorpayPaymentId = id;
+        payment.razorpayPaymentId = event.payload.payment_link.entity.payment_id;
         await payment.save();
 
         const borrow = await Borrow.findById(payment.borrow);
@@ -118,3 +120,6 @@ export const handleWebhook = async (req, res) => {
     res.status(500).json({ message: "Webhook error" });
   }
 };
+
+
+
