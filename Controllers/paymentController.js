@@ -96,7 +96,6 @@ export const handleWebhook = async (req, res) => {
 
     const event = req.body;
 
-    // ✅ Correct event for payment links
     if (event.event === "payment_link.paid") {
       const paymentLinkId = event.payload.payment_link.entity.id;
 
