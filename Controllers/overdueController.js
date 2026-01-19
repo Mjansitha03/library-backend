@@ -20,7 +20,6 @@ export const runOverdueCheck = async () => {
     }).populate("user book");
 
     for (const borrow of overdueBorrows) {
-
       const finePaid = await Payment.exists({
         borrow: borrow._id,
         purpose: "FINE",
@@ -79,6 +78,7 @@ export const runOverdueCheck = async () => {
 export const getOverdue = async (req, res) => {
   try {
     const now = new Date();
+    console.log("Checking overdue borrows at", now);
 
     const overdueBorrows = await Borrow.find({
       status: "borrowed",
@@ -86,35 +86,43 @@ export const getOverdue = async (req, res) => {
     })
       .populate("user", "name email")
       .populate("book", "title")
-      .sort({ dueDate: 1 });
+      .sort({ dueDate: 1 })
+      .lean();
 
-    const result = [];
+    console.log("Overdue borrows found:", overdueBorrows.length);
 
-    for (const borrow of overdueBorrows) {
-      const payment = await Payment.findOne({
-        borrow: borrow._id,
-        purpose: "FINE",
-      });
+    const result = await Promise.all(
+      overdueBorrows.map(async (borrow) => {
+        const user = borrow.user || { name: "Deleted User", email: "N/A" };
+        const book = borrow.book || { title: "Deleted Book" };
 
-      const overdueMinutes = Math.ceil((now - borrow.dueDate) / (60 * 1000));
+        const payment = await Payment.findOne({
+          borrow: borrow._id,
+          purpose: "FINE",
+        }).lean();
 
-      result.push({
-        borrowId: borrow._id,
-        user: borrow.user,
-        book: borrow.book,
-        dueDate: borrow.dueDate,
-        overdueMinutes,
-        fine: borrow.lateFee || 0,
-        paymentStatus: payment?.status || "pending",
-      });
-    }
+        const overdueMinutes = Math.ceil(
+          (now - new Date(borrow.dueDate)) / (1000 * 60),
+        );
+        const overdueDays = Math.ceil(overdueMinutes / (60 * 24));
+        const fine = borrow.lateFee || FIXED_FINE;
 
-    res.json({
-      totalOverdue: result.length,
-      data: result,
-    });
+        return {
+          borrowId: borrow._id,
+          user,
+          book,
+          dueDate: borrow.dueDate,
+          overdueMinutes,
+          overdueDays,
+          fine,
+          paymentStatus: payment?.status || "pending",
+        };
+      }),
+    );
+
+    return res.json({ totalOverdue: result.length, data: result });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server error" });
+    console.error("Error fetching overdue:", err);
+    return res.status(500).json({ message: "Server error" });
   }
 };

@@ -4,7 +4,7 @@ const notificationSchema = new mongoose.Schema(
   {
     user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     referenceId: { type: mongoose.Schema.Types.ObjectId },
-    type: { type: String }, 
+    type: { type: String },
     title: String,
     message: String,
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
@@ -13,9 +13,12 @@ const notificationSchema = new mongoose.Schema(
   },
   {
     timestamps: { createdAt: "createdAt", updatedAt: "updatedAt" },
-  }
+  },
 );
 
-notificationSchema.index({ user: 1, referenceId: 1, type: 1 }, { unique: true });
+notificationSchema.index(
+  { user: 1, referenceId: 1, type: 1 },
+  { unique: true },
+);
 
 export default mongoose.model("Notification", notificationSchema);

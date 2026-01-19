@@ -9,7 +9,7 @@ const borrowRequestSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: ["pending", "approved", "rejected", "completed"],
-      default: "pending"
+      default: "pending",
     },
 
     borrowRef: { type: mongoose.Schema.Types.ObjectId, ref: "Borrow" },
@@ -19,11 +19,11 @@ const borrowRequestSchema = new mongoose.Schema(
 
     isSeedData: { type: Boolean, default: false },
     createdAt: Date,
-    updatedAt: Date
+    updatedAt: Date,
   },
   {
-    timestamps: { createdAt: "createdAt", updatedAt: "updatedAt" }
-  }
+    timestamps: { createdAt: "createdAt", updatedAt: "updatedAt" },
+  },
 );
 
 export default mongoose.model("BorrowRequest", borrowRequestSchema);

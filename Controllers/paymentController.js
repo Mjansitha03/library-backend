@@ -49,7 +49,6 @@ export const createPaymentOrder = async (req, res) => {
 };
 
 // Verify payment
-// controllers/paymentController.js
 export const verifyPayment = async (req, res) => {
   try {
     const {
@@ -59,7 +58,6 @@ export const verifyPayment = async (req, res) => {
       paymentId,
     } = req.body;
 
-    // ⛔ Prevent payment-link verification here
     if (razorpay_order_id.startsWith("plink_")) {
       return res.status(400).json({
         message: "Payment link verification handled by webhook only",
@@ -76,7 +74,6 @@ export const verifyPayment = async (req, res) => {
       return res.status(400).json({ message: "Invalid signature" });
     }
 
-    // ✅ SAFE LOOKUP
     const payment = await Payment.findOne({
       _id: paymentId,
       razorpayOrderId: razorpay_order_id,
@@ -102,7 +99,6 @@ export const verifyPayment = async (req, res) => {
 };
 
 // Handle webhook
-// controllers/paymentController.js
 export const handleWebhook = async (req, res) => {
   try {
     const secret = process.env.RAZORPAY_WEBHOOK_SECRET;

@@ -7,17 +7,17 @@ const reservationSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: ["pending", "notified", "in-progress", "completed", "expired"],
-      default: "pending"
+      default: "pending",
     },
     expiresAt: Date,
     isSeedData: { type: Boolean, default: false },
 
     createdAt: Date,
-    updatedAt: Date
+    updatedAt: Date,
   },
   {
-    timestamps: { createdAt: "createdAt", updatedAt: "updatedAt" }
-  }
+    timestamps: { createdAt: "createdAt", updatedAt: "updatedAt" },
+  },
 );
 
 export default mongoose.model("Reservation", reservationSchema);

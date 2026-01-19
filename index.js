@@ -28,7 +28,7 @@ app.use("/api/payments/webhook", express.raw({ type: "application/json" }));
 app.use(express.json());
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: "https://library-frontend-ul6m.vercel.app",
     credentials: true,
     methods: ["GET", "POST", "PATCH", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],

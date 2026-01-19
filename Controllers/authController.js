@@ -101,7 +101,7 @@ export const forgotPassword = async (req, res) => {
 
     await user.save();
 
-    const resetUrl = `http://localhost:5173/reset-password/${user._id}/${rawToken}`;
+    const resetUrl = `https://library-frontend-ul6m.vercel.app/reset-password/${user._id}/${rawToken}`;
 
     await sendEmail(
       user.email,

@@ -10,11 +10,11 @@ const reviewSchema = new mongoose.Schema(
     isSeedData: { type: Boolean, default: false },
 
     createdAt: Date,
-    updatedAt: Date
+    updatedAt: Date,
   },
   {
-    timestamps: { createdAt: "createdAt", updatedAt: "updatedAt" }
-  }
+    timestamps: { createdAt: "createdAt", updatedAt: "updatedAt" },
+  },
 );
 
 export default mongoose.model("Review", reviewSchema);

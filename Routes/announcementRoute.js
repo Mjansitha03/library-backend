@@ -8,7 +8,7 @@ import {
 
 const router = express.Router();
 
-router.get("/", protect, getAllAnnouncements);
+router.get("/",getAllAnnouncements);
 
 router.post("/", protect, authorizeRoles("admin", "librarian"), createAnnouncement);
 router.delete("/:id", protect, authorizeRoles("admin", "librarian"), deleteAnnouncement);

@@ -15,7 +15,7 @@ const bookSchema = new mongoose.Schema(
     availabilityStatus: {
       type: String,
       enum: ["available", "unavailable"],
-      default: "available"
+      default: "available",
     },
 
     averageRating: { type: Number, default: 0 },
@@ -23,11 +23,11 @@ const bookSchema = new mongoose.Schema(
     isSeedData: { type: Boolean, default: false },
 
     createdAt: Date,
-    updatedAt: Date
+    updatedAt: Date,
   },
   {
-    timestamps: { createdAt: "createdAt", updatedAt: "updatedAt" }
-  }
+    timestamps: { createdAt: "createdAt", updatedAt: "updatedAt" },
+  },
 );
 
 export default mongoose.model("Book", bookSchema);

@@ -10,15 +10,19 @@ const borrowSchema = new mongoose.Schema(
     returnDate: Date,
 
     lateFee: { type: Number, default: 0 },
-    status: { type: String, enum: ["borrowed", "pending-return", "returned"], default: "borrowed" },
+    status: {
+      type: String,
+      enum: ["borrowed", "pending-return", "returned"],
+      default: "borrowed",
+    },
 
     isSeedData: { type: Boolean, default: false },
     createdAt: Date,
-    updatedAt: Date
+    updatedAt: Date,
   },
   {
-    timestamps: { createdAt: "createdAt", updatedAt: "updatedAt" }
-  }
+    timestamps: { createdAt: "createdAt", updatedAt: "updatedAt" },
+  },
 );
 
 export default mongoose.model("Borrow", borrowSchema);
